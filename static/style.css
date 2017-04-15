@@ -1,0 +1,13 @@
+body {
+  background-image: url('notebook.png');
+}
+
+.well {
+  height: 300px;
+  overflow: auto;
+  word-wrap: break-word;
+}
+
+#sendbutton{
+  display: none;  
+}

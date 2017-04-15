@@ -1,20 +1,23 @@
 from flask import Flask, render_template, request, url_for, redirect, flash, session, abort
-from flask_socket-io import SocketIO,
+from flask_socketio import SocketIO, send
 import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
+app.config['DEBUG'] = True
 socketio = SocketIO(app)
 
-@socketio.on('message')
-def handle_message(msg):
-    print(msg)
-    send(msg, broadcast=True)
 
 @app.route("/")
 def index():
-   return render_template('index.html')
+   return render_template("bla.html")
+
+
+@socketio.on('message')
+def handle_message(msg, user="User"):
+    msg = "<dt>{}</dt><dl>{}<dl>".format(user, msg)
+    send(msg, broadcast=True)
 
 
 if __name__ == "__main__":
-    socketio.run(host='0.0.0.0', debug=True)
+    socketio.run(app, host="0.0.0.0")
