@@ -1,153 +1,193 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no, width=device-width">
 
-        <title>Blank App</title>
-        <!-- Latest compiled and minified CSS -->
-        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
-        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-        <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.min.js"></script>
-        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.0/jquery.min.js"></script>
-        <!-- Latest compiled JavaScript -->
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
-    </head>
+    <title>Blank App</title>
+    <!-- Latest compiled and minified CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script type="text/javascript"
+            src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.4.8/socket.io.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.0/jquery.min.js"></script>
+    <!-- Latest compiled JavaScript -->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
 
 
-    <body>
-      <div class="jumbotron">
-        <h1 class="text-center">The ultimate heheh</h1>
-        <p class="text-center">Say something!</p>
-      </div>
+<body>
+<div class="jumbotron">
+    <h1 class="text-center">The ultimate chat-app!</h1>
+    <p class="text-center">Say something!</p>
+</div>
 
-          <div class="container">
-
-        <div class="row">
-
-        <div class="col-sm-6 col-sm-offset-3">
-            <p>Users logged in</p>
-            <ul id="logged-users"></ul>
-            <div class="well" id="well">
-              <ul id="messages"></ul>
+<div class="container">
+    <div class="well" id="nickname-well">
+        <h1 class="text-center">Hi!</h1>
+        <h2 class="text-center">Before you start chatting, please enter your nickname below.</h2>
+        <div class="col-sm-8 col-centered">
+            <div class="form-group">
+                <input type="text" class="form-control text-center" id="nickname" placeholder="Nickname">
             </div>
-            <form id="message-form" class="form-horizontal" action="#">
-              <div class="form-group">
-                <label for="nickname" class="col-sm-2 control-label">Nickname</label>
-                <div class="col-sm-10">
-                  <input type="text" class="form-control" id="nickname" placeholder="Nickname">
-                </div>
-              </div>
-              <div class="form-group">
-                <label for="message" class="col-sm-2 control-label">Message</label>
-                <div class="col-sm-10">
-                  <input type="text" class="form-control" id="myMessage" placeholder="Message">
-                </div>
-              </div>
-              <div class="form-group">
-                <div class="col-sm-offset-2 col-sm-10 text-center">
-
-                </div>
-              </div>
-            </form>
-            <div class="text-center">
-              <button type="submit" id="sendbutton" class="btn btn-default btn-lg">
-                <span class="text-primary glyphicon glyphicon-send"></span> Send
-              </button>
+            <div class="text-center invisible-button">
+                <button type="submit" id="btn-connect" class="btn btn-default btn-lg">
+                    <span class="text-primary glyphicon glyphicon-log-in icon-big"></span><br/> Enter chat!
+                </button>
             </div>
-
         </div>
+    </div>
+
+    <div class="well" id="message-well">
+        <div class="col-sm-11 col-centered">
+            <div class="row">
+                <div class="col-md-9">
+
+                    <p>Message board</p>
+                    <div id="message-board" class="scrollable">
+                        <dl id="messages"></dl>
+                    </div>
+                    <form id="message-form" action="#">
+
+                        <div class="form-group">
+                            <label for="message" class="control-label">Your message:</label>
+                            <div class="input-group input-group-unstyled">
+                                <input type="text" class="form-control" id="myMessage" placeholder="Message">
+                                <span class="input-group-addon">
+                                    <span id="sendbutton"
+                                          class="text-primary glyphicon glyphicon-send icon-big pull-left">
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-3">
+                    <p>Users logged in</p>
+                    <div id="user-board" class="scrollable">
+                        <ul id="logged-users"></ul>
+                    </div>
+                </div>
+            </div>
         </div>
-        </div>
-        <script type="text/javascript">
-        $(document).ready(function() {
-        	var socket = io.connect('http://192.168.1.67:5000/');
-          var messageBoard = $("#well");
-          var preventOnScroll = false;
-          var autoScrollingEnabled = true;
+    </div>
+</div>
 
+<script type="text/javascript">
+    $(document).ready(function () {
+        var messageBoard = $("#message-board");
+        var preventOnScroll = false;
+        var autoScrollingEnabled = true;
+        var socket = null;
+        var nickname = null;
+        $('#nickname-well').fadeIn(500);
 
-        	// socket.on('connect', function() {
-        	// 	socket.emit('join')
-          //   if (!messageBoard.scrolledToBottom() && autoScrollingEnabled){
-          //     messageBoard.scrollTop(messageBoard[0].scrollHeight);
-          //     preventOnScroll = true;
-          //   }
-        	// });
-
-        	socket.on('message', function(msg) {
-            $("#messages").append(msg);
-
-            if (!messageBoard.scrolledToBottom() && autoScrollingEnabled){
-              messageBoard.scrollTop(messageBoard[0].scrollHeight);
-              preventOnScroll = true;
-            }
-
-        		console.log('Received message');
-        	});
-
-          socket.on('connectedUserChange', function(userIds){
-            var users = "";
-            userIds.data.forEach( function(id){
-              users += "<li>"+id+"</li>";
-            });
-
-            $('#logged-users').html(users);
-
-          })
-
-
-          function sendMessage() {
+        function sendMessage() {
             var nickname = $('#nickname').val();
-            if (!nickname){
-              alert("Enter your nickname first!")
-              return
+            if (!nickname) {
+                alert("Enter your nickname first!");
+                return
             }
             socket.emit('message', $('#myMessage').val(), $('#nickname').val());
-            if (!messageBoard.scrolledToBottom()){
-              messageBoard.scrollTop(messageBoard[0].scrollHeight); }
-        		$('#myMessage').val('').focus();
-          }
+            autoScrollingEnabled = true;
+            $('#myMessage').val('').focus();
+        }
 
-        	$('#sendbutton').click( function() {
-          		sendMessage();
-        	});
+        $('#btn-connect').click(function () {
+            nickname = $('#nickname').val();
+            if (nickname) {
+                socket = io.connect('http://192.168.1.67:5000/');
+                connectToSocket(nickname);
+                $('#nickname-well').hide();
+                $('#message-well').fadeIn();
+            }
+        });
 
-          $('#myMessage').on('keydown', function(e) {
-              if (e.which == 13) {
-                  sendMessage();
-              }
-              if ($(this).val()){
-                $('#sendbutton').show();
-              } else {
-                $('#sendbutton').hide();
-              }
-          });
+        $('#sendbutton').click(function () {
+            sendMessage();
+            $(this).hide();
+        });
 
-
-
-          messageBoard.scroll(function(){
-            if (preventOnScroll){
-                preventOnScroll = false;
-                return;
-              }
-
-              if (!messageBoard.scrolledToBottom() ){
-                autoScrollingEnabled = false;
-              } else {
-                autoScrollingEnabled = true;
-              }
-
-            });
-
-            (function($) {
-                $.fn.scrolledToBottom = function() {
-                    return this[0].scrollHeight - this[0].scrollTop == this.innerHeight();
-                };
-            }(jQuery));
+        $('#nickname').on('keydown', function (e) {
+            if (e.which === 13 && $('#nickname').val()) {
+            $('#btn-connect').click()
+            }
+            setTimeout(function () {   //calls click event after a certain time
+                if ($('#nickname').val()) {
+                    $('#btn-connect').fadeIn(500);
+                } else {
+                    $('#btn-connect').fadeOut(200);
+                }
+            }, 100);
 
         });
 
-        </script>
-    </body>
+        $('#myMessage').on('keydown', function (e) {
+            if (e.which === 13 && $('#myMessage').val()) {
+                sendMessage();
+                e.preventDefault()
+            }
+            setTimeout(function () {   //calls click event after a certain time
+                if ($('#myMessage').val()) {
+                    $('#sendbutton').fadeIn(500);
+                } else {
+                    $('#sendbutton').hide();
+                }
+            }, 100);
+
+        });
+
+        messageBoard.scroll(function () {
+            if (preventOnScroll) {
+                preventOnScroll = false;
+                return;
+            }
+
+            if (!messageBoard.scrolledToBottom()) {
+                autoScrollingEnabled = false;
+            } else {
+                autoScrollingEnabled = true;
+            }
+
+        });
+
+        (function ($) {
+            $.fn.scrolledToBottom = function () {
+                console.log(this[0].scrollHeight +" " +  this[0].scrollTop+" " + this.innerHeight());
+                return this[0].scrollHeight - this[0].scrollTop === this.innerHeight();
+            };
+        }(jQuery));
+
+        function connectToSocket(nickname) {
+            socket.on('connect', function () {
+                socket.emit('join', nickname);
+            });
+
+            socket.on('message', function (msg) {
+                $("#messages").append(msg);
+
+                if (autoScrollingEnabled) {
+                    messageBoard.scrollTop(messageBoard[0].scrollHeight);
+                    preventOnScroll = true;
+                }
+
+                console.log('Received message');
+            });
+
+            socket.on('connectedUserChange', function (userIds) {
+                var users = "";
+                userIds.data.forEach(function (id) {
+                    users += "<li>" + id + "</li>";
+                });
+
+                $('#logged-users').html(users);
+            });
+
+
+        }
+    });
+
+
+</script>
+</body>
 </html>
