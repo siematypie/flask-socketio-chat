@@ -7,22 +7,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
 app.config['DEBUG'] = True
 socketio = SocketIO(app)
-users = []
+users = {}
 
 @socketio.on('join')
 def on_join(name):
-    session['name'] = name
-    users.append(name)
+    users[request.sid] = name
     room = "hehe"
     join_room(room)
     print(users)
-    emit('connectedUserChange', {'data':users}, room=room)
+    emit('connectedUserChange', {'data':list(users.values())}, room=room)
 
-    @socketio.on('disconnect')
-    def test_disconnect():
-        users.remove(session['name'])
-        emit('connectedUserChange', {"data": users}, broadcast=True)
-        print("DISCONNECTED " + session['name'])
+
 
 # @socketio.on('connect', namespace='/')
 # def test_connect():
@@ -31,7 +26,11 @@ def on_join(name):
 #     print("connectiooon" + request.sid)
 #     emit('connectedUserChange', {"data": ids}, broadcast=True)
 #     # emit('message', "User is connected")
-
+@socketio.on('disconnect')
+def test_disconnect():
+    del users[request.sid]
+    emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
+    print("DISCONNECTED")
 
 
 @socketio.on('checkSessionName')
