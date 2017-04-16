@@ -18,6 +18,11 @@ def on_join(name):
     print(users)
     emit('connectedUserChange', {'data':users}, room=room)
 
+    @socketio.on('disconnect')
+    def test_disconnect():
+        users.remove(session['name'])
+        emit('connectedUserChange', {"data": users}, broadcast=True)
+        print("DISCONNECTED " + session['name'])
 
 # @socketio.on('connect', namespace='/')
 # def test_connect():
@@ -27,11 +32,7 @@ def on_join(name):
 #     emit('connectedUserChange', {"data": ids}, broadcast=True)
 #     # emit('message', "User is connected")
 
-@socketio.on('disconnect')
-def test_disconnect():
-    users.remove(session['name'])
-    emit('connectedUserChange', {"data": users}, broadcast=True)
-    print("DISCONNECTED " + session['name'])
+
 
 @socketio.on('checkSessionName')
 def check_session_name():
