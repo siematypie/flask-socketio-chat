@@ -7,7 +7,6 @@ import jinja2
 eventlet.monkey_patch
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
-app.config['DEBUG'] = True
 socketio = SocketIO(app)
 users = {}
 
@@ -20,11 +19,12 @@ def on_join(name):
     emit('message', "{} has connected!".format(name), broadcast=True)
     emit('connectedUserChange', {'data':list(users.values())}, room=room)
 
-@socketio.on('disconnect')
-def test_disconnect():
-    del users[request.sid]
-    emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
-    print("DISCONNECTED")
+    @socketio.on('disconnect')
+    def test_disconnect():
+        if request.sid in users:
+            del users[request.sid]
+            emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
+        print("DISCONNECTED")
 
 # @socketio.on('connect', namespace='/')
 # def test_connect():
@@ -37,7 +37,9 @@ def test_disconnect():
 
 @socketio.on('disconnectMe')
 def disconnect_user():
-    emit('message', 'jeheh')
+    emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
+    emit('message', 'HEHEHE!', broadcast=True)
+
 
 @socketio.on('checkSessionName')
 def check_session_name():

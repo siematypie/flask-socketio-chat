@@ -104,7 +104,7 @@
         $('#btn-connect').click(function () {
             nickname = $('#nickname').val();
             if (nickname) {
-                socket = io.connect();
+                socket = io.connect('http://89.46.222.106:5000',{'sync disconnect on unload':true});
 
                 connectToSocket(nickname);
                 $('#nickname-well').hide();
@@ -192,10 +192,10 @@
                 $('#logged-users').html(users);
             });
 
-            $(window).on("beforeunload", function()
-		{
-			socket.emit('disconnectMe');
-		});
+             $(window).on("beforeunload", function()
+		 {	
+		 	socket.emit('disconnectMe');
+		 });
 
 
         }
