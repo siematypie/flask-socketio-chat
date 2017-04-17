@@ -1,8 +1,10 @@
 from flask import Flask, render_template, request, url_for, redirect, flash, session, abort, jsonify
-from flask_socketio import SocketIO, send, emit, join_room
+from flask_socketio import SocketIO, send, emit, join_room, disconnect
 import os
+import eventlet
 import jinja2
 
+eventlet.monkey_patch
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
 app.config['DEBUG'] = True
@@ -15,9 +17,14 @@ def on_join(name):
     room = "hehe"
     join_room(room)
     print(users)
+    emit('message', "{} has connected!".format(name), broadcast=True)
     emit('connectedUserChange', {'data':list(users.values())}, room=room)
 
-
+@socketio.on('disconnect')
+def test_disconnect():
+    del users[request.sid]
+    emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
+    print("DISCONNECTED")
 
 # @socketio.on('connect', namespace='/')
 # def test_connect():
@@ -26,12 +33,11 @@ def on_join(name):
 #     print("connectiooon" + request.sid)
 #     emit('connectedUserChange', {"data": ids}, broadcast=True)
 #     # emit('message', "User is connected")
-@socketio.on('disconnect')
-def test_disconnect():
-    del users[request.sid]
-    emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
-    print("DISCONNECTED")
 
+
+@socketio.on('disconnectMe')
+def disconnect_user():
+    emit('message', 'jeheh')
 
 @socketio.on('checkSessionName')
 def check_session_name():
