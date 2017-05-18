@@ -1,90 +1,78 @@
-from flask import Flask, render_template, request, url_for, redirect, flash, session, abort, jsonify
+import time
+from threading import Thread
+from flask import Flask, render_template, request, url_for, redirect, flash, session, abort, jsonify, g
 from flask_socketio import SocketIO, send, emit, join_room, disconnect
 import os
+import eventlet
 import jinja2
 import uuid
+from flask_cors import CORS
 
 
+eventlet.monkey_patch()
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
 app.config['DEBUG'] = True
+cors = CORS(app,resources={r"/*":{"origins":"*"}}, support_credentials=True)
 socketio = SocketIO(app)
-sessions_ids = {"hehe":3}
-users = {}
+sessions_ids = {"beka":"123"}
+users_conns = {}
+sids = {}
 
-
-# @socketio.on('addSessionAndJoin')
-# def on_join(name):
-#     print("I'm working")
-#
-#
-#     session['name'] = name
-#     users[name] = [request.sid]
-#     emit('connectedUserChange', {"data": list(users)}, broadcast=True)
-#     print(session['id'])
-#     print(session['name'] )
-#
-#     # if name in sessions_ids:
-#     #     if 'name' in session and id in session:
-#     #         if all_sessions[name]
-#     # session['name'] = name
-#     #
-#     # if name in users:
-#     #     users[name].append(request.sid)
-#     # else:
-#     #     users[name] = [request.sid]
-#     # emit('message', "{} has connected!".format(name), broadcast=True)
-#     # emit('connectedUserChange', {'data':list(users)})
-
-
-@socketio.on('connect')
+@socketio.on('connect', namespace="/")
 def test_connect():
-    if 'name' in session:
-        print(sessions_ids)
-        print(users)
-        print(session['name'])
-        session_name = session['name']
-        session_id = session['id']
-
-        if session_name in sessions_ids and session_id != sessions_ids[session_name]:
-            msg = "ERROR! Name '{}' you used before is alerady in use by someone else! Please choose different one!".format(session_name)
-            emit('loginNeeded', msg , room=request.sid)
+    id = request.args.get('id')
+    name = str(jinja2.escape(request.args.get('username')))
+    if name in sessions_ids:
+        if id != sessions_ids[name]:
+            msg = "ERROR! Name '{}' you used before is already in use by someone else! Please choose different one!".format(name)
+            emit('loginNeeded', msg, room=request.sid)
+            disconnect()
             return
-        elif session_name not in sessions_ids:
-            sessions_ids[session_name] = session_id
 
         join_room('general')
-        if session_name in users:
-            users[session_name].append(request.sid)
+        if name in users_conns:
+            users_conns[name] += 1
         else:
-            users[session_name] = [request.sid]
-        emit('connectedUserChange', {"data": list(users)}, broadcast=True)
+            users_conns[name] = 1
+
+        sids[request.sid] = name
+        emit('connectedUserChange', {"data": list(users_conns)}, broadcast=True)
+        print("WORKIN")
         emit('joinSuccessful')
     else:
-        print('hehe')
+        print("JEJE")
         emit('loginNeeded', room=request.sid)
+        disconnect()
+        # thread = Thread(target=disconnect_with_delay, args=(request.sid,))
+        # thread.daemon = True
+        # thread.start()
 
     @socketio.on('disconnect')
     def test_disconnect():
-        print('DISCOOOOO')
-        if 'name' in session:
-            session_name = session['name']
-            if session_name in users:
-                sid_list = users[session_name]
-                if sid_list:
-                    if request.sid in sid_list:
-                        if len(sid_list) == 1:
-                            del users[session_name]
-                            del sessions_ids[session_name]
-                        else:
-                            sid_list.remove(request.sid)
+        sid = request.sid
+        if sid in sids:
+            name = sids[sid]
+            del sids[sid]
+            users_conns[name] -= 1
+            if users_conns[name] < 1:
+                del users_conns[name]
+                del sessions_ids[name]
+        # if 'name' in session:
+            # session_name = session['name']
+            # if session_name in users:
+            #     sid_list = users[session_name]
+            #     if sid_list:
+            #         if request.sid in sid_list:
+            #             if len(sid_list) == 1:
+            #                 del users[session_name]
+            #                 del sessions_ids[session_name]
+            #             else:
+            #                 sid_list.remove(request.sid)
 
 
-            emit('connectedUserChange', {"data": list(users)}, broadcast=True)
+            emit('connectedUserChange', {"data": list(users_conns)}, broadcast=True)
 
-
-def append_sid_to_users(name):
-    pass
 # @socketio.on('connect', namespace='/')
 # def test_connect():
 #     session['sid'] = request.sid
@@ -95,10 +83,7 @@ def append_sid_to_users(name):
 
 
 # @socketio.on('disconnectMe')
-# def disconnect_user():
-#     emit('connectedUserChange', {"data": list(users.values())}, broadcast=True)
-#     emit('message', 'HEHEHE!', broadcast=True)
-
+# def disconnect_user()
 
 @socketio.on('checkSessionName')
 def check_session_name():
@@ -110,19 +95,50 @@ def check_session_name():
 def index():
     return render_template("bla.html")
 
-@app.route("/session/<name>")
-def set_session(name):
-    session['name'] = name
-    session['id'] = uuid.uuid4()
-    name = str(jinja2.escape(name))
-    return redirect(url_for('index'))
+@app.route("/getsession", methods=['POST'])
+def set_session():
+    user_data = request.json
+    name = user_data['username']
+    parsed_name =  str(jinja2.escape(name))
+    if name in users_conns:
+        return jsonify({"Error":
+                        "ERROR! Name '{}' is already in use by someone else! Please choose different one!".format(name)}), 406
 
+    id = str(uuid.uuid4())
+    sessions_ids[parsed_name] = id
+
+    return jsonify(
+        username = name,
+        id = id
+    )
+
+@app.route("/validate", methods=['POST'])
+def validate_data():
+    user_data = request.json
+
+    if any(k not in user_data for k in ("id", "username")):
+        return jsonify({"validation": False})
+
+    name = str(jinja2.escape(user_data['username']))
+    if name in sessions_ids and user_data["id"] != sessions_ids[name]:
+        msg = "ERROR! Name '{}' you used before is already in use by someone else! Please choose different one!".format(
+            name)
+        return jsonify({"validation": False, "error":msg})
+
+    sessions_ids[name] = user_data['id']
+    return jsonify({"validation": True})
+
+
+def disconnect_with_delay(sid):
+    with app.test_request_context('/'):
+        time.sleep(7)
+        socketio.server.disconnect(sid,
+                                   namespace="/")
 
 @socketio.on('message', namespace="/")
 def handle_message(msg):
-
     msg = str(jinja2.escape(msg))
-    msg = "<dt>{}</dt><dd>{}<dd>".format(session['name'], msg)
+    msg = "<dt>{}</dt><dd>{}<dd>".format(sids[request.sid], msg)
     send(msg, broadcast=True)
 
 

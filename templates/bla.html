@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <script type="text/javascript"
-            src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/1.7.3/socket.io.min.js"></script>
+            src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.0.1/socket.io.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.0/jquery.min.js"></script>
     <!-- Latest compiled JavaScript -->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
@@ -62,6 +62,7 @@
                                     </span>
                                 </span>
                             </div>
+                            <p id="log_out"><br> <a href='#' class='log-out'>Log out</a></p>
                         </div>
                     </form>
                 </div>
@@ -77,17 +78,51 @@
 </div>
 
 <script type="text/javascript">
+
+
+
     $(document).ready(function () {
-
-
+        // var serverAddress = 'http://89.46.222.106:5000';
+        var serverAddress = 'localhost:5000'
         var messageBoard = $("#message-board");
+        var nicknameWell = $('#nickname-well');
         var preventOnScroll = false;
         var autoScrollingEnabled = true;
-{#        var socket = io.connect('http://89.46.222.106:5000',{'sync disconnect on unload':true});#}
-        var socket = io.connect('http://192.168.1.5:5000');
-{#        var socket = io.connect('http://192.168.1.67:5000');#}
-        var nickname = null;
+        var $currentWindow = nicknameWell;
+        var socket = null;
 
+        $.fn.showAsCurrent = function () {
+            $currentWindow.hide();
+            this.fadeIn(500);
+            $currentWindow = $(this);
+        };
+
+        if (localStorage.getItem('userData')){
+            $.ajax({
+                type: 'POST',
+                url: '/validate',
+                data: localStorage.getItem('userData'),
+                success: function(data) {
+                    if(data.validation){
+                        connectToSocket();
+                    } else {
+                        if (data.error){
+                            showError(data.error);
+                        }
+                        nicknameWell.showAsCurrent();
+                    }
+                },
+                contentType: "application/json",
+                dataType: 'json'
+            });
+        } else {
+            nicknameWell.showAsCurrent();
+        }
+
+
+
+{#        var socket = io.connect('http://89.46.222.106:5000',{'sync disconnect on unload':true});#}
+{#        var socket = io.connect('http://192.168.1.67:5000');#}
 
         function sendMessage() {
             socket.emit('message', $('#myMessage').val());
@@ -98,11 +133,23 @@
         $('#btn-connect').click(function () {
             nickname = $('#nickname').val();
             if (nickname) {
-                window.location.replace("/session/"+nickname);
-{#                $('#nickname-well').hide();#}
-{#                $('#message-well').fadeIn();#}
+                $.ajax({
+                type: 'POST',
+                url: '/getsession',
+                data: JSON.stringify({"username":nickname}),
+                success: function(data) {
+                    localStorage.setItem('userData', JSON.stringify(data));
+                    connectToSocket();
+                },
+                contentType: "application/json",
+                dataType: 'json'
+            })
+                 .fail(function(error) {
+                    showError(error.responseJSON.Error, "connection-error");
+                });
             }
         });
+
 
         $('#sendbutton').click(function () {
             sendMessage();
@@ -120,7 +167,6 @@
                     $('#btn-connect').fadeOut(200);
                 }
             }, 100);
-
         });
 
         $('#myMessage').on('keydown', function (e) {
@@ -152,12 +198,41 @@
 
         });
 
-{#                    socket.on('connect', function () {#}
-{#                socket.emit('join', nickname);#}
-{#            });#}
+
+             $(window).on("beforeunload", function()
+		 {
+		 	socket.emit('disconnectMe');
+		 });
+
+
+        function showError(error, errorClass){
+            $('.' + errorClass).remove();
+            $('.informer').append("<div class='alert alert-danger alert-dismissable "+ errorClass + "'>" +
+                        "<a href='#' class='close' data-dismiss='alert' aria-label='close'>&times;</a>"+
+                        error + "</div>")
+        }
+
+        $(".log-out").click(function () {
+            event.preventDefault();
+            socket.close();
+            localStorage.clear();
+            nicknameWell.showAsCurrent()
+        });
+
+        function connectToSocket() {
+            if (socket){
+                socket.close();
+            }
+            var userData = JSON.parse(localStorage.getItem('userData'));
+            socket = io.connect(serverAddress ,{'forceNew': true, query: "id=" + userData.id +"&username="+ encodeURIComponent(userData.username) ,transports: ['websocket'], 'multiplex': false});
+
+{#            $("#log_out").html("Logged in as " + userData.username + " <a href='#' class='log-out'>Log out</a>");#}
+{#            socket.io.uri = 'localhost:5000/?id=' + userData.id + "&name=" + userData.username;#}
+{#            socket.io.opts.query = "id=" + userData.id + "&name=" + userData.username;#}
+{#            socket.open()#}
 
             socket.on('disconnect', function(){
-                alert('disconnected!');
+                console.log('disconnected');
             });
 
             socket.on('message', function (msg) {
@@ -180,7 +255,7 @@
                 $('#logged-users').html(users); });
 
             socket.on('joinSuccessful', function () {
-                $('#message-well').fadeIn()
+                $('#message-well').showAsCurrent();
             });
 
             socket.on('loginNeeded',function (error) {
@@ -192,7 +267,7 @@
                 $('#nickname-well').fadeIn(500);
             });
 
-
+        }
 
         (function ($) {
             $.fn.scrolledToBottom = function () {
@@ -201,14 +276,9 @@
             };
         }(jQuery));
 
-
-             $(window).on("beforeunload", function()
-		 {	
-		 	socket.emit('disconnectMe');
-		 });
-
-
     });
+
+
 
 
 </script>
