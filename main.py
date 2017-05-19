@@ -14,10 +14,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(12)
 app.config['DEBUG'] = True
 cors = CORS(app,resources={r"/*":{"origins":"*"}}, support_credentials=True)
-socketio = SocketIO(app)
+async_mode = None
+socketio = SocketIO(app, async_mode=async_mode)
 sessions_ids = {"beka":"123"}
 users_conns = {}
 sids = {}
+#
+# def test():
+
+# thread = Thread(target=test)
+# thread.daemon = True
+# thread.start()
 
 @socketio.on('connect', namespace="/")
 def test_connect():
@@ -44,9 +51,7 @@ def test_connect():
         print("JEJE")
         emit('loginNeeded', room=request.sid)
         disconnect()
-        # thread = Thread(target=disconnect_with_delay, args=(request.sid,))
-        # thread.daemon = True
-        # thread.start()
+
 
     @socketio.on('disconnect')
     def test_disconnect():
@@ -91,6 +96,13 @@ def check_session_name():
         return session['name']
 
 
+@socketio.on('sendFile', namespace='/')
+def handle_file(file_size, file_name, file_base64):
+    # send("FILE", broadcast=True)
+    file_sender = sids[request.sid]
+    file_dict = {"fileSize":file_size, "fileName":file_name, "fileSender":file_sender, "fileBase64":file_base64}
+    emit('fileBroadcast',file_dict, broadcast=True)
+
 @app.route("/")
 def index():
     return render_template("bla.html")
@@ -128,6 +140,10 @@ def validate_data():
     sessions_ids[name] = user_data['id']
     return jsonify({"validation": True})
 
+@app.route("/file", methods=['POST'])
+def send_file():
+    print(type(request.files['file'].read()))
+    return jsonify({"result": "OK"})
 
 def disconnect_with_delay(sid):
     with app.test_request_context('/'):
@@ -135,12 +151,19 @@ def disconnect_with_delay(sid):
         socketio.server.disconnect(sid,
                                    namespace="/")
 
+
 @socketio.on('message', namespace="/")
 def handle_message(msg):
     msg = str(jinja2.escape(msg))
     msg = "<dt>{}</dt><dd>{}<dd>".format(sids[request.sid], msg)
     send(msg, broadcast=True)
 
+
+
+
+@socketio.on('sendImg', namespace='/')
+def handle_image(img):
+    emit('imgBroadcast', img, broadcast=True)
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0")
