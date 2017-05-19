@@ -101,6 +101,9 @@
         var autoScrollingEnabled = true;
         var $currentWindow = nicknameWell;
         var socket = null;
+        var reader;
+        var selectedFile;
+        var fileName;
 
         $.fn.showAsCurrent = function () {
             $currentWindow.hide();
@@ -163,54 +166,43 @@
         $('#send-file').click(function () {
             var files = document.getElementById('myFile').files;
             if (files.length > 0) {
+                selectedFile = files[0];
                 getBase64(files[0]);
             }
         });
 
-
-        function sendFile(file) {
-            var xhr = new XMLHttpRequest();
-            (xhr.upload || xhr).addEventListener('progress', function(e) {
-                var done = e.position || e.loaded;
-                var total = e.totalSize || e.total;
-                console.log('xhr progress: ' + Math.round(done/total*100) + '%');
-            });
-            xhr.addEventListener('load', function(e) {
-                console.log('xhr upload complete', e, this.responseText);
-            });
-            xhr.open('post', '/file', true);
-
-            var data = new FormData;
-            data.append('file', file);
-            data.append('json', '{"foo":"bar"}'); // for jsFiddle
-            xhr.send(data);
-        }
-
         function getBase64(file) {
             var fileSize = file.size/1024;
-            var fileName = file.name;
+            fileName = file.name;
             var fileType = file.type;
             if (fileSize > 10000){
                 alert("File too big! maximum file size is 10mb!");
                 return
             }
-           var reader = new FileReader();
+            reader = new FileReader();
             {#           reader.readAsDataURL(file);#}
-            reader.readAsArrayBuffer(file);
-           reader.onload = function () {
+{#            reader.readAsArrayBuffer(file);#}
+            reader.onload = function(evnt){
+                socket.emit('upload', evnt.target.result);
+            };
 
-               fileObject = {"fileSize": fileSize, "fileName": fileName, "dataURL": reader.result};
-               if (file.type.includes("image")) {
-                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);
-               } else {
-                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);
-{#                    $("#files").html(createDownloadLink(reader.result, file.name));#}
-               }
-           };
-           reader.onerror = function (error) {
+            reader.onerror = function (error) {
              console.log('Error: ', error);
            };
+
+            socket.emit('startSending', fileName, selectedFile.size, selectedFile.type);
+{#           reader.onload = function () {#}
+{##}
+{#               fileObject = {"fileSize": fileSize, "fileName": fileName, "dataURL": reader.result};#}
+{#               if (file.type.includes("image")) {#}
+{#                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);#}
+{#               } else {#}
+{#                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);#}
+{#                    $("#files").html(createDownloadLink(reader.result, file.name));#}
+{#               }#}
+{#           };#}
         }
+
 
         $('#sendbutton').click(function () {
             sendMessage();
@@ -286,7 +278,6 @@
             }
             var userData = JSON.parse(localStorage.getItem('userData'));
             socket = io.connect(serverAddress ,{'forceNew': true, query: "id=" + userData.id +"&username="+ encodeURIComponent(userData.username) ,transports: ['websocket']});
-
 {#            $("#log_out").html("Logged in as " + userData.username + " <a href='#' class='log-out'>Log out</a>");#}
 {#            socket.io.uri = 'localhost:5000/?id=' + userData.id + "&name=" + userData.username;#}
 {#            socket.io.opts.query = "id=" + userData.id + "&name=" + userData.username;#}
@@ -334,6 +325,19 @@
                 );
             });
 
+            socket.on('moreData', function (data){
+            console.log(data['percent']);
+            var place = data['place'] * 524288; //The Next Blocks Starting Position
+            var newFile; //The Variable that will hold the new Block of Data
+            if(selectedFile.webkitSlice) {
+                newFile = selectedFile.webkitSlice(place, place + Math.min(524288, (selectedFile.size - place)));
+            } else if (selectedFile.mozSlize) {
+                 newFile = selectedFile.mozSlice(place, place + Math.min(524288, (selectedFile.size-place)));
+            } else {
+                newFile = selectedFile.slice(place, place + Math.min(524288, (selectedFile.size-place)));
+            }
+            reader.readAsArrayBuffer(newFile);
+        });
         }
 
         function createDownloadLink(fileJson) {

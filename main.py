@@ -2,6 +2,7 @@ import time
 from threading import Thread
 from flask import Flask, render_template, request, url_for, redirect, flash, session, abort, jsonify, g
 from flask_socketio import SocketIO, send, emit, join_room, disconnect
+from models.file import File
 import os
 import eventlet
 import jinja2
@@ -77,6 +78,32 @@ def test_connect():
 
 
             emit('connectedUserChange', {"data": list(users_conns)}, broadcast=True)
+
+
+@socketio.on('startSending')
+def start_sending(name, size, mime_type):
+    File(name, size, mime_type, request.sid)
+    place = 0
+    emit('moreData', {'place': place, "percent": 0})
+
+
+@socketio.on('upload')
+def upload(array_buffer):
+    print("UPLOAD")
+    file = File.get_file(request.sid)
+    file.data += array_buffer
+    file.downloaded += len(array_buffer)
+    if file.downloaded == file.size:
+        sender = sids[request.sid]
+        file_dict = {"fileSize": file.size, "fileName": file.name, "fileSender": sender, "fileType": file.mime_type,
+                     "arrayBuffer": bytes(file.data)}
+        emit('fileBroadcast', file_dict, broadcast=True)
+        File.del_file(request.sid)
+    else:
+        place = file.downloaded / File.CHUNK_SIZE
+        percent = (file.downloaded / file.size) * 100
+        emit('moreData', {'place': place, "percent": percent})
+
 
 # @socketio.on('connect', namespace='/')
 # def test_connect():
