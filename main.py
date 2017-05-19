@@ -97,10 +97,9 @@ def check_session_name():
 
 
 @socketio.on('sendFile', namespace='/')
-def handle_file(file_size, file_name, file_base64):
-    # send("FILE", broadcast=True)
+def handle_file(file_size, file_name, file_type, array_buffer):
     file_sender = sids[request.sid]
-    file_dict = {"fileSize":file_size, "fileName":file_name, "fileSender":file_sender, "fileBase64":file_base64}
+    file_dict = {"fileSize":file_size, "fileName":file_name, "fileSender":file_sender, "fileType":file_type, "arrayBuffer":array_buffer}
     emit('fileBroadcast',file_dict, broadcast=True)
 
 @app.route("/")

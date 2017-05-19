@@ -189,22 +189,21 @@
         function getBase64(file) {
             var fileSize = file.size/1024;
             var fileName = file.name;
+            var fileType = file.type;
             if (fileSize > 10000){
                 alert("File too big! maximum file size is 10mb!");
                 return
             }
            var reader = new FileReader();
-
-//            console.log(Math.round();
-           console.log(file.name);
-           reader.readAsDataURL(file);
+            {#           reader.readAsDataURL(file);#}
+            reader.readAsArrayBuffer(file);
            reader.onload = function () {
 
                fileObject = {"fileSize": fileSize, "fileName": fileName, "dataURL": reader.result};
                if (file.type.includes("image")) {
-                   socket.emit('sendFile', fileSize, fileName, reader.result);
+                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);
                } else {
-                   socket.emit('sendFile', fileSize, fileName, reader.result);
+                   socket.emit('sendFile', fileSize, fileName, fileType, reader.result);
 {#                    $("#files").html(createDownloadLink(reader.result, file.name));#}
                }
            };
@@ -338,7 +337,7 @@
         }
 
         function createDownloadLink(fileJson) {
-            var blob = dataURIToBlob(fileJson.fileBase64);
+            blob = new Blob([fileJson.arrayBuffer], {type: fileJson.fileType});
             var url = URL.createObjectURL(blob);
             var a = document.createElement("a");
             a.download = fileJson.fileName;
