@@ -64,6 +64,12 @@ def test_connect():
             if users_conns[name] < 1:
                 del users_conns[name]
                 del sessions_ids[name]
+            emit('connectedUserChange', {"data": list(users_conns)}, broadcast=True)
+
+
+@socketio.on('connect', namespace='/files')
+def files_connect():
+    print('heh')
         # if 'name' in session:
             # session_name = session['name']
             # if session_name in users:
@@ -77,32 +83,38 @@ def test_connect():
             #                 sid_list.remove(request.sid)
 
 
-            emit('connectedUserChange', {"data": list(users_conns)}, broadcast=True)
-
-
-@socketio.on('startSending')
-def start_sending(name, size, mime_type):
+@socketio.on('startSending', namespace='/files')
+def start_sending(name, size, mime_type, user_data):
+    id = user_data['id']
+    username = user_data['username']
+    if id != sessions_ids[username]:
+        disconnect()
+        return
+    else:
+        sids[request.sid] = username
     File(name, size, mime_type, request.sid)
     place = 0
-    emit('moreData', {'place': place, "percent": 0})
+    emit('moreData', {'place': place, "percent": 0}, room=request.sid)
 
 
-@socketio.on('upload')
+@socketio.on('upload', namespace='/files')
 def upload(array_buffer):
     print("UPLOAD")
     file = File.get_file(request.sid)
     file.data += array_buffer
     file.downloaded += len(array_buffer)
     if file.downloaded == file.size:
+        emit('fileUploaded', room=request.sid)
         sender = sids[request.sid]
         file_dict = {"fileSize": file.size, "fileName": file.name, "fileSender": sender, "fileType": file.mime_type,
-                     "arrayBuffer": bytes(file.data)}
-        emit('fileBroadcast', file_dict, broadcast=True)
+                     "id": request.sid, "arrayBuffer": bytes(file.data)}
+        emit('fileBroadcast', file_dict, broadcast=True, namespace='/')
         File.del_file(request.sid)
+        emit('fileSent', room=request.sid)
     else:
         place = file.downloaded / File.CHUNK_SIZE
         percent = (file.downloaded / file.size) * 100
-        emit('moreData', {'place': place, "percent": percent})
+        emit('moreData', {'place': place, "percent": percent}, room=request.sid)
 
 
 # @socketio.on('connect', namespace='/')
@@ -121,13 +133,6 @@ def upload(array_buffer):
 def check_session_name():
     if 'name' in session:
         return session['name']
-
-
-@socketio.on('sendFile', namespace='/')
-def handle_file(file_size, file_name, file_type, array_buffer):
-    file_sender = sids[request.sid]
-    file_dict = {"fileSize":file_size, "fileName":file_name, "fileSender":file_sender, "fileType":file_type, "arrayBuffer":array_buffer}
-    emit('fileBroadcast',file_dict, broadcast=True)
 
 @app.route("/")
 def index():

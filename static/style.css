@@ -118,3 +118,17 @@ span.input-group-addon{
 .form-group{
     margin-top: 5px;
 }
+
+.file-input {
+    max-width: 350px;
+}
+
+#myFile {
+    background-color: transparent;
+    border-style: none;
+}
+
+.input-group-addon{
+    margin-top: 0;
+    padding-top: 2px;
+}
